@@ -3,7 +3,8 @@ function resolveModuleName(request, issuer, compilerOptions, moduleResolutionHos
 
   const [, prefix = ``, packageName = ``, rest] = request.match(/^(!(?:.*!)+)?((?!\.{0,2}\/)(?:@[^\/]+\/)?[^\/]+)?(.*)/);
 
-  let failedLookupLocations = [];
+  const tryUnqualified = [];
+  const failedLookupLocations = [];
 
   // First we try the resolution on "@types/package-name" starting from the project root
   if (packageName) {
@@ -15,20 +16,14 @@ function resolveModuleName(request, issuer, compilerOptions, moduleResolutionHos
     } catch (error) {}
 
     if (unqualified) {
+      tryUnqualified.push(unqualified);
+
       // TypeScript checks whether the directory of the candidate is a directory
       // which may cause issues w/ zip loading (since the zip archive is still
       // reported as a file). To workaround this we add a trailing slash, which
       // causes TypeScript to assume the parent is a directory.
       if (moduleResolutionHost.directoryExists && moduleResolutionHost.directoryExists(unqualified))
-        unqualified += `/`;
-
-      const finalResolution = parentResolver(unqualified, issuer, compilerOptions, moduleResolutionHost);
-
-      if (finalResolution.resolvedModule || finalResolution.resolvedTypeReferenceDirective) {
-        return finalResolution;
-      } else {
-        failedLookupLocations = failedLookupLocations.concat(finalResolution.failedLookupLocations);
-      }
+        tryUnqualified.push(unqualified + `/`);
     }
   }
 
@@ -42,21 +37,24 @@ function resolveModuleName(request, issuer, compilerOptions, moduleResolutionHos
     } catch (error) {}
 
     if (unqualified) {
+      tryUnqualified.push(unqualified);
+
       // TypeScript checks whether the directory of the candidate is a directory
       // which may cause issues w/ zip loading (since the zip archive is still
       // reported as a file). To workaround this we add a trailing slash, which
       // causes TypeScript to assume the parent is a directory.
       if (moduleResolutionHost.directoryExists && moduleResolutionHost.directoryExists(unqualified))
-        unqualified += `/`;
-
-      const finalResolution = parentResolver(unqualified, issuer, compilerOptions, moduleResolutionHost);
-
-      if (finalResolution.resolvedModule || finalResolution.resolvedTypeReferenceDirective) {
-        return finalResolution;
-      } else {
-        failedLookupLocations = failedLookupLocations.concat(finalResolution.failedLookupLocations);
-      }
+        tryUnqualified.push(unqualified + '/');
     }
+  }
+
+  for (const unqualified of tryUnqualified) {
+    const finalResolution = parentResolver(unqualified, issuer, compilerOptions, moduleResolutionHost);
+
+    if (finalResolution.resolvedModule || finalResolution.resolvedTypeReferenceDirective)
+      return finalResolution;
+
+    failedLookupLocations.push(...finalResolution.failedLookupLocations);
   }
 
   return {
