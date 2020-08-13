@@ -7,7 +7,7 @@ function resolveModuleName(request, issuer, compilerOptions, moduleResolutionHos
 
   // First we try the resolution on "@types/package-name" starting from the project root
   if (packageName) {
-    const typesPackagePath = `@types/${packageName.replace(/\//g, `__`)}${rest}`;
+    const typesPackagePath = `@types/${packageName.replace(/\//g, `__`).replace('@', '')}${rest}`;
 
     let unqualified;
     try {
